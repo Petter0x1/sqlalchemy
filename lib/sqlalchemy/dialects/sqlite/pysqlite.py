@@ -553,6 +553,13 @@ class SQLiteDialect_pysqlite(SQLiteDialect):
         else:
             dbapi_connection.isolation_level = ""
             return super().set_isolation_level(dbapi_connection, level)
+    
+    def _has_deterministic_kwarg(self):
+        # sqlite must be greater than 3.8.3 for deterministic=True
+        # https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.create_function
+        # the check is more conservative since there were still issues
+        # with following 3.8 sqlite versions
+        return util.py38 and self._get_server_version_info(None) >= (3, 9)
 
     def on_connect(self):
         def regexp(a, b):
@@ -560,11 +567,7 @@ class SQLiteDialect_pysqlite(SQLiteDialect):
                 return None
             return re.search(a, b) is not None
 
-        if self._get_server_version_info(None) >= (3, 9):
-            # sqlite must be greater than 3.8.3 for deterministic=True
-            # https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.create_function
-            # the check is more conservative since there were still issues
-            # with following 3.8 sqlite versions
+        if self._has_deterministic_kwarg():
             create_func_kw = {"deterministic": True}
         else:
             create_func_kw = {}
